@@ -24,6 +24,7 @@ target_link_options(sanitizers INTERFACE
 # --- The library: all real logic lives here ---
 add_library(gitcore STATIC
     src/GitClient/repository.cpp
+    src/GitClient/sha1.cpp
 )
 target_include_directories(gitcore PUBLIC src)
 target_link_libraries(gitcore PUBLIC warnings sanitizers)
@@ -41,7 +42,11 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(doctest)
 
-add_executable(tests tests/test_repository.cpp)
+add_executable(tests 
+    tests/test_repository.cpp 
+    tests/test_sha1.cpp
+)
+target_link_libraries(tests PRIVATE gitcore doctest::doctest)
 target_link_libraries(tests PRIVATE gitcore doctest::doctest)
 
 enable_testing()
