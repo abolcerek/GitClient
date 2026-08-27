@@ -2,9 +2,9 @@ cmake_minimum_required(VERSION 3.20)
 project(GitClient CXX)
 
 # --- Language settings ---
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)   # error out rather than silently downgrade
-set(CMAKE_CXX_EXTENSIONS OFF)         # -std=c++20, not -std=gnu++20
+set(CMAKE_CXX_EXTENSIONS OFF)         # -std=c++23, not -std=gnu++23
 
 # --- Warnings, applied via an interface target we can attach to anything ---
 add_library(warnings INTERFACE)
