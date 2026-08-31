@@ -26,6 +26,7 @@ add_library(gitcore STATIC
     src/GitClient/repository.cpp
     src/GitClient/sha1.cpp
     src/GitClient/object_store.cpp
+    src/GitClient/objects.cpp
 )
 target_include_directories(gitcore PUBLIC src)
 target_link_libraries(gitcore PUBLIC warnings sanitizers)
@@ -47,6 +48,7 @@ add_executable(tests
     tests/test_repository.cpp 
     tests/test_sha1.cpp
     tests/test_object_store.cpp
+    tests/test_objects.cpp
 )
 target_link_libraries(tests PRIVATE gitcore doctest::doctest)
 target_link_libraries(tests PRIVATE gitcore doctest::doctest)
