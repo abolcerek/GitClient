@@ -1,1 +1,9 @@
 /build
+/.github
+/.vscode
+/tools
+/.clang-tidy
+/.cmake-format.yaml
+/.editorconfig
+/.pre-commit-config.yaml
+/.gitattributes

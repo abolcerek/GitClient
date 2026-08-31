@@ -8,7 +8,7 @@
 #include <bit>
 
 namespace GitClient {
-    std::string to_hex(const std::array<std::byte, 4>& data) {
+    std::string to_hex(const std::array<std::byte, GitClient::hash_size>& data) {
         std::string hexString = "";
             for (auto b : data) {
             auto highNibble = static_cast<int>(b >> 4);
@@ -18,7 +18,7 @@ namespace GitClient {
         return hexString;
     }
 
-    std::string sha1(const std::vector<std::byte>& data) {
+    std::array<std::byte, GitClient::hash_size> sha1(const std::vector<std::byte>& data) {
         uint32_t H0 = 0x67452301;
         uint32_t H1 = 0xEFCDAB89;
         uint32_t H2 = 0x98BADCFE;
@@ -96,6 +96,12 @@ namespace GitClient {
             H3 = std::byteswap(H3);
             H4 = std::byteswap(H4);
         }
-        return to_hex(std::bit_cast<std::array<std::byte, 4>>(H0)) + to_hex(std::bit_cast<std::array<std::byte, 4>>(H1)) + to_hex(std::bit_cast<std::array<std::byte, 4>>(H2)) + to_hex(std::bit_cast<std::array<std::byte, 4>>(H3)) + to_hex(std::bit_cast<std::array<std::byte, 4>>(H4));   
+        std::array<std::byte, GitClient::hash_size> res;
+        std::memcpy(&res[0], &H0, sizeof(H0));
+        std::memcpy(&res[4], &H1, sizeof(H1));
+        std::memcpy(&res[8], &H2, sizeof(H2));
+        std::memcpy(&res[12], &H3, sizeof(H3));
+        std::memcpy(&res[16], &H4, sizeof(H4));
+        return res;
     }
 }

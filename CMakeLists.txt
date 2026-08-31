@@ -4,7 +4,7 @@ project(GitClient CXX)
 # --- Language settings ---
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)   # error out rather than silently downgrade
-set(CMAKE_CXX_EXTENSIONS OFF)         # -std=c++23, not -std=gnu++23
+set(CMAKE_CXX_EXTENSIONS ON)         # -std=c++23, not -std=gnu++23
 
 # --- Warnings, applied via an interface target we can attach to anything ---
 add_library(warnings INTERFACE)
@@ -25,6 +25,7 @@ target_link_options(sanitizers INTERFACE
 add_library(gitcore STATIC
     src/GitClient/repository.cpp
     src/GitClient/sha1.cpp
+    src/GitClient/object_store.cpp
 )
 target_include_directories(gitcore PUBLIC src)
 target_link_libraries(gitcore PUBLIC warnings sanitizers)
@@ -45,6 +46,7 @@ FetchContent_MakeAvailable(doctest)
 add_executable(tests 
     tests/test_repository.cpp 
     tests/test_sha1.cpp
+    tests/test_object_store.cpp
 )
 target_link_libraries(tests PRIVATE gitcore doctest::doctest)
 target_link_libraries(tests PRIVATE gitcore doctest::doctest)
