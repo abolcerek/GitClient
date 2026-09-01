@@ -15,7 +15,7 @@ TEST_CASE("object store correctly hashes") {
     REQUIRE(out_file.is_open());
     out_file << "hello" << "\n";
     out_file.close();
-    auto digest = GitClient::hash_object(tmp, input.string(), true);
+    auto digest = GitClient::hash_object(tmp, input.string(), "blob", true);
     auto hex = "ce013625030ba8dba906f756967f9e9ca394464a";
     CHECK(GitClient::to_hex(digest) == hex);
     const fs::path object_path = tmp / "objects" / "ce" / "013625030ba8dba906f756967f9e9ca394464a";

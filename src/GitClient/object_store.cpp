@@ -30,9 +30,9 @@ namespace GitClient {
         throw std::runtime_error("Error when reading file contents into buffer");
     }
 
-    std::array<std::byte, GitClient::hash_size> hash_object(const fs::path& root, const fs::path& file_path, bool write) {
+    std::array<std::byte, GitClient::hash_size> hash_object(const fs::path& root, const fs::path& file_path, std::string type, bool write) {
         auto content = GitClient::read_file(file_path);
-        std::string header = "blob " +  std::to_string(content.size());
+        std::string header = type + " " +  std::to_string(content.size());
         header.push_back('\0');
         std::vector<std::byte> buffer;
         buffer.resize(header.size() + content.size());

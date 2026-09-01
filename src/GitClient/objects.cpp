@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <stdexcept>
 #include <charconv>
+#include <numeric>
 
 namespace fs = std::filesystem;
 
@@ -40,4 +41,61 @@ namespace GitClient {
         } 
         return {type, payload};
     }
+
+    bool tree_entry_less(const TreeEntry& a, const TreeEntry& b) {
+        auto key_a = a.name + (a.mode == directory ? "/" : "");
+        auto key_b = b.name + (b.mode == directory ? "/" : "");
+        return key_a < key_b;
+    }
+
+    void string_to_bytes(std::vector<std::byte>& res, std::string_view input) {
+        for (auto i : input) {
+            res.push_back(static_cast<std::byte>(i));
+        }
+    }
+    std::vector<std::byte> serialize_tree(const std::vector<TreeEntry>& entries) {
+        std::vector<std::byte> res;
+        size_t total = std::accumulate(entries.begin(), entries.end(), size_t(0),[](size_t current, const TreeEntry& entry) {
+            return current + entry.name.size() + entry.mode.size() + entry.hash.size() + 2;
+        });
+        res.reserve(total);
+        auto sorted = entries;
+        std::sort(sorted.begin(), sorted.end(), tree_entry_less);
+        for (const auto& entry : sorted) {
+            string_to_bytes(res, entry.mode);
+            res.push_back(std::byte{' '});
+            string_to_bytes(res, entry.name);
+            res.push_back(std::byte{0});
+            for (auto& hash_byte : entry.hash) {
+                res.push_back(hash_byte);
+            }
+        }
+        return res;
+    }
+
+    std::array<std::byte, hash_size> write_tree(const std::filesystem::path& root, const std::filesystem::path& dir) {
+        fs::path path_dir = root / dir;
+        std::vector<TreeEntry> res;
+        if (fs::exists(path_dir) && fs::is_directory(path_dir)) {
+            for (const auto& entry : fs::directory_iterator(path_dir)) {
+                //auto tree_entry = TreeEntry{};
+                //skipping sub directories for now
+                if (fs::is_regular_file(entry)) {
+                    if (entry.path().filename().string() == ".git") {
+                        continue;
+                    }
+                    auto tree_entry = TreeEntry{};
+                    if (fs::status(entry).permissions() == fs::perms::owner_exec)
+                        tree_entry.mode = "100755";
+                    else 
+                        tree_entry.mode = std::string(directory); 
+                    tree_entry.name = entry.path().filename().string();
+                    tree_entry.hash = hash_object(root, dir, "tree", true);
+                    res.push_back(tree_entry);
+                }
+            }
+        }
+        serialize_tree(res);
+    }
+
 }
