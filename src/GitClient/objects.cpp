@@ -49,7 +49,7 @@ namespace GitClient {
     }
 
     void string_to_bytes(std::vector<std::byte>& res, std::string_view input) {
-        for (auto i : input) {
+        for (auto& i : input) {
             res.push_back(static_cast<std::byte>(i));
         }
     }
@@ -74,28 +74,29 @@ namespace GitClient {
     }
 
     std::array<std::byte, hash_size> write_tree(const std::filesystem::path& root, const std::filesystem::path& dir) {
-        fs::path path_dir = root / dir;
-        std::vector<TreeEntry> res;
-        if (fs::exists(path_dir) && fs::is_directory(path_dir)) {
-            for (const auto& entry : fs::directory_iterator(path_dir)) {
+        std::vector<TreeEntry> entries;
+        if (fs::exists(dir) && fs::is_directory(dir)) {
+            for (const auto& entry : fs::directory_iterator(dir)) {
                 //auto tree_entry = TreeEntry{};
                 //skipping sub directories for now
-                if (fs::is_regular_file(entry)) {
-                    if (entry.path().filename().string() == ".git") {
+                if (entry.path().filename().string() == ".git") {
                         continue;
-                    }
+                }
+                if (fs::is_regular_file(entry)) {
                     auto tree_entry = TreeEntry{};
-                    if (fs::status(entry).permissions() == fs::perms::owner_exec)
+                    if ((fs::status(entry).permissions() & fs::perms::owner_exec) != fs::perms::none)
                         tree_entry.mode = "100755";
                     else 
-                        tree_entry.mode = std::string(directory); 
+                        tree_entry.mode = std::string(normal_file); 
                     tree_entry.name = entry.path().filename().string();
-                    tree_entry.hash = hash_object(root, dir, "tree", true);
-                    res.push_back(tree_entry);
+                    tree_entry.hash = hash_object(root, entry.path(), true);
+                    entries.push_back(std::move(tree_entry));
                 }
             }
+        } else {
+            throw std::runtime_error("Error: path is not a directory and does not exist");
         }
-        serialize_tree(res);
+        return write_record(root, "tree", serialize_tree(entries), true);
     }
 
 }

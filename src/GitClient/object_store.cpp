@@ -30,14 +30,15 @@ namespace GitClient {
         throw std::runtime_error("Error when reading file contents into buffer");
     }
 
-    std::array<std::byte, GitClient::hash_size> hash_object(const fs::path& root, const fs::path& file_path, std::string type, bool write) {
-        auto content = GitClient::read_file(file_path);
-        std::string header = type + " " +  std::to_string(content.size());
+    std::array<std::byte, GitClient::hash_size> write_record(const std::filesystem::path& root, std::string type, const std::vector<std::byte>& payload, bool write) {
+        std::string header = type + " " +  std::to_string(payload.size());
         header.push_back('\0');
         std::vector<std::byte> buffer;
-        buffer.resize(header.size() + content.size());
+        buffer.resize(header.size() + payload.size());
         std::memcpy(buffer.data(), header.data(), header.size());
-        std::memcpy(buffer.data() + header.size(), content.data(), content.size());
+        if (!payload.empty()) {
+            std::memcpy(buffer.data() + header.size(), payload.data(), payload.size());
+        }
         auto hashedObject = GitClient::sha1(buffer);
         if (write) {
             auto hex = GitClient::to_hex(hashedObject);
@@ -55,5 +56,10 @@ namespace GitClient {
             }
         }
         return hashedObject;
+    }
+
+    std::array<std::byte, GitClient::hash_size> hash_object(const fs::path& root, const fs::path& file_path, bool write) {
+        auto content = GitClient::read_file(file_path);
+        return write_record(root, "blob", content, write);
     }
 }
