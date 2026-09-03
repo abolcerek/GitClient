@@ -1,6 +1,9 @@
 #include "objects.hpp"
 #include "object_store.hpp"
+#include "sha1.hpp"
 
+#include <iterator>
+#include <ranges>
 #include <utility>
 #include <string>
 #include <filesystem>
@@ -42,6 +45,38 @@ namespace GitClient {
         return {type, payload};
     }
 
+    std::vector<TreeEntry> parse_tree(const std::vector<std::byte>& payload) {
+        size_t pos = 0;
+        std::vector<TreeEntry> res;
+        while (pos < payload.size()) {
+            TreeEntry entry;
+            auto space = std::find(payload.begin() + pos, payload.end(), std::byte{' '});
+            if (space == payload.end()) {
+                throw std::runtime_error("Error: payload does not contain a space");
+            }
+            auto mode = std::ranges::subrange(payload.begin() + pos, space);
+            entry.mode = std::string(reinterpret_cast<const char*>(&*mode.begin()), mode.size());
+            pos = (space - payload.begin()) + 1;
+            auto null_terminator = std::find(payload.begin() + pos, payload.end(), std::byte{0});
+            if (null_terminator == payload.end()) {
+                throw std::runtime_error("Error: payload does not contain a null terminator");
+            }
+            auto name = std::ranges::subrange(payload.begin() + pos, null_terminator);
+            entry.name = std::string(reinterpret_cast<const char*>(&*name.begin()), name.size());
+            pos = (null_terminator - payload.begin()) + 1;
+            if ((pos + 20) <= payload.size()) {
+                std::array<std::byte, hash_size> hash;
+                std::copy_n(payload.begin() + pos, hash_size, hash.begin());
+                entry.hash = hash;
+                pos += 20;
+            } else {
+                throw std::runtime_error("Error: incorrect hash size");
+            }
+            res.push_back(std::move(entry));
+        }
+        return res;
+    }
+
     bool tree_entry_less(const TreeEntry& a, const TreeEntry& b) {
         auto key_a = a.name + (a.mode == directory ? "/" : "");
         auto key_b = b.name + (b.mode == directory ? "/" : "");
@@ -77,8 +112,6 @@ namespace GitClient {
         std::vector<TreeEntry> entries;
         if (fs::exists(dir) && fs::is_directory(dir)) {
             for (const auto& entry : fs::directory_iterator(dir)) {
-                //auto tree_entry = TreeEntry{};
-                //skipping sub directories for now
                 if (entry.path().filename().string() == ".git") {
                         continue;
                 }
@@ -90,6 +123,13 @@ namespace GitClient {
                         tree_entry.mode = std::string(normal_file); 
                     tree_entry.name = entry.path().filename().string();
                     tree_entry.hash = hash_object(root, entry.path(), true);
+                    entries.push_back(std::move(tree_entry));
+                }
+                if (fs::is_directory(entry) && !fs::is_empty(entry)) {
+                    auto tree_entry = TreeEntry{};
+                    tree_entry.mode = std::string(directory);
+                    tree_entry.name = entry.path().filename().string();
+                    tree_entry.hash = write_tree(root, entry.path()); // does guard againt a subdir containing only empty subdirs yet
                     entries.push_back(std::move(tree_entry));
                 }
             }

@@ -20,6 +20,7 @@ namespace GitClient {
         std::string name;
         std::array<std::byte, hash_size> hash;
     };
+    std::vector<TreeEntry> parse_tree(const std::vector<std::byte>& payload);
     bool tree_entry_less(const TreeEntry&, const TreeEntry&);
     void string_to_bytes(std::vector<std::byte>& res, std::string_view input);
     std::vector<std::byte> serialize_tree(const std::vector<TreeEntry>& entries);

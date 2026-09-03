@@ -8,7 +8,9 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <stdexcept>
 #include <string_view>
+#include <vector>
 
 namespace fs = std::filesystem;
 
@@ -67,6 +69,37 @@ int main(int argc, char* argv[]) {
         try {
             auto [_, content] = GitClient::read_object_raw(fs::current_path() / ".git", second_arg);
             std::cout.write(reinterpret_cast<const char*>(content.data()), content.size());
+            return 0;
+        }
+        catch (const std::exception& e) {
+            std::cerr << e.what();
+            return 1;
+        }
+    }
+    if (first_arg == "ls-tree") {
+        if (argc != 3) {
+            std::exit(1);
+        }
+        const std::string_view second_arg = argv[2];
+        try {
+            auto [header, content] = GitClient::read_object_raw(fs::current_path() / ".git", second_arg);
+            if (header != "tree") {
+                std::cout << "Error: type is not tree";
+                return 1;
+            }
+            auto digest = GitClient::parse_tree(content);
+            for (auto& entry : digest) {
+                std::string type;
+                if (entry.mode == GitClient::directory) {
+                    type = "tree";
+                    entry.mode = '0' + entry.mode;
+                } else if (entry.mode == GitClient::normal_file) {
+                    type = "blob";
+                } else {
+                    throw std::runtime_error("Unknown object type");
+                }
+                std::cout << entry.mode << " " << type << " " << GitClient::to_hex(entry.hash) << "\t" << entry.name << "\n";
+            }
             return 0;
         }
         catch (const std::exception& e) {

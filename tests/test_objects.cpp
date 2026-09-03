@@ -1,5 +1,6 @@
 #include <doctest/doctest.h>
 #include <fstream>
+#include <algorithm>
 
 #include "GitClient/object_store.hpp"
 #include "GitClient/sha1.hpp"
