@@ -18,6 +18,32 @@
 namespace fs = std::filesystem;
 
 namespace GitClient {
+    Blob::Blob(std::vector<std::byte> content)
+    : content_{std::move(content)} { }
+    
+    std::string_view Blob::type() const {
+        return "blob";
+    }
+    std::vector<std::byte> Blob::serialize() const {
+        return content_;
+    }
+    Tree::Tree(std::vector<TreeEntry> entries)
+    : entries_{std::move(entries)} { }
+
+    std::string_view Tree::type() const {
+        return "tree";
+    }
+    std::vector<std::byte> Tree::serialize() const {
+        return serialize_tree(entries_);
+    }
+    Commit::Commit(std::vector<std::byte> content) 
+    : content_{std::move(content)} { }
+    std::string_view Commit::type() const {
+        return "commit";
+    }
+    std::vector<std::byte> Commit::serialize() const {
+        return content_;
+    }
     std::pair<std::string, std::vector<std::byte>> read_object_raw(const fs::path& root, std::string_view hex) {
         const fs::path file_path = root / "objects" / hex.substr(0, 2) / hex.substr(2);
         auto buffer = GitClient::read_file(file_path);

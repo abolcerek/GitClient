@@ -25,4 +25,35 @@ namespace GitClient {
     void string_to_bytes(std::vector<std::byte>& res, std::string_view input);
     std::vector<std::byte> serialize_tree(const std::vector<TreeEntry>& entries);
     std::array<std::byte, hash_size> write_tree(const std::filesystem::path& root, const std::filesystem::path& dir);
+    class GitObject { 
+        public:
+        virtual ~GitObject() = default;
+        virtual std::string_view type() const = 0;
+        virtual std::vector<std::byte> serialize() const = 0;
+    };
+
+    class Blob : public GitObject {
+        private:
+        std::vector<std::byte> content_;
+        public:
+        explicit Blob(std::vector<std::byte> content);
+        std::string_view type() const override;
+        std::vector<std::byte> serialize() const override;
+    };
+        class Tree : public GitObject {
+        private:
+        std::vector<TreeEntry> entries_;
+        public:
+        explicit Tree(std::vector<TreeEntry> entries);
+        std::string_view type() const override;
+        std::vector<std::byte> serialize() const override;
+    };
+        class Commit : public GitObject {
+        private:
+        std::vector<std::byte> content_;
+        public:
+        explicit Commit(std::vector<std::byte> content);
+        std::string_view type() const override;
+        std::vector<std::byte> serialize() const override;
+    };
 }
