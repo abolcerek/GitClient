@@ -2,6 +2,7 @@
 
 #include "object_store.hpp"
 
+#include <memory>
 #include <utility>
 #include <string>
 #include <filesystem>
@@ -56,4 +57,5 @@ namespace GitClient {
         std::string_view type() const override;
         std::vector<std::byte> serialize() const override;
     };
+    std::unique_ptr<GitObject> read_object(const std::filesystem::path& root, std::string_view hex);
 }

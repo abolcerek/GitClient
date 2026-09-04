@@ -9,7 +9,7 @@ set(CMAKE_CXX_EXTENSIONS ON)         # -std=c++23, not -std=gnu++23
 # --- Warnings, applied via an interface target we can attach to anything ---
 add_library(warnings INTERFACE)
 target_compile_options(warnings INTERFACE
-    -Wall -Wextra -Wpedantic -Wconversion -Wshadow
+    -Wall -Wextra -Wpedantic -Wconversion -Wshadow -Werror=shadow -Werror=return-type
 )
 
 # --- Sanitizers in Debug builds only ---

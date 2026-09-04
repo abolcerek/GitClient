@@ -3,6 +3,7 @@
 #include "sha1.hpp"
 
 #include <iterator>
+#include <memory>
 #include <ranges>
 #include <utility>
 #include <string>
@@ -43,6 +44,21 @@ namespace GitClient {
     }
     std::vector<std::byte> Commit::serialize() const {
         return content_;
+    }
+    std::unique_ptr<GitObject> read_object(const std::filesystem::path &root, std::string_view hex) {
+        auto [type, payload] = read_object_raw(root, hex);
+        if (type == "blob") {
+            return std::make_unique<Blob>(std::move(payload));
+        }
+        else if (type == "tree") {
+            return std::make_unique<Tree>(parse_tree(payload));
+        }
+        else if (type == "commit") {
+            return std::make_unique<Commit>(std::move(payload));
+        }
+        else {
+            throw std::runtime_error("Unknown Git Object type");
+        }
     }
     std::pair<std::string, std::vector<std::byte>> read_object_raw(const fs::path& root, std::string_view hex) {
         const fs::path file_path = root / "objects" / hex.substr(0, 2) / hex.substr(2);
