@@ -58,4 +58,13 @@ namespace GitClient {
         std::vector<std::byte> serialize() const override;
     };
     std::unique_ptr<GitObject> read_object(const std::filesystem::path& root, std::string_view hex);
+    struct CommitData {
+        std::string tree;
+        std::vector<std::string> parents;
+        std::string author;
+        std::string committer;
+        std::string message;
+    };
+    std::vector<std::byte> serialize_commit(const CommitData& commit);
+    CommitData parse_commit(const std::vector<std::byte>& payload);
 }

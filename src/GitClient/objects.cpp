@@ -181,4 +181,62 @@ namespace GitClient {
         return write_record(root, "tree", serialize_tree(entries), true);
     }
 
+    std::vector<std::byte> serialize_commit(const CommitData& commit) {
+        std::vector<std::byte> res;
+        string_to_bytes(res, std::format("tree {}\n", commit.tree));
+        for (const auto& parent : commit.parents) {
+            string_to_bytes(res, std::format("parent {}\n", parent));
+        }
+        string_to_bytes(res, std::format("author {}\ncommitter {}\n\n{}", commit.author, commit.committer, commit.message));
+        return res;
+    }
+    CommitData parse_commit(const std::vector<std::byte>& payload) {
+        CommitData data;
+        size_t pos = 0;
+        auto tree_start = std::find(payload.begin() + pos, payload.end(), std::byte{' '});
+        auto tree_end = std::find(tree_start, payload.end(), std::byte{'\n'});
+        if (tree_end == payload.end()) {
+            throw std::runtime_error("Tree not found in payload");
+        }
+        auto tree = std::ranges::subrange(tree_start + 1, tree_end);
+        data.tree = std::string(reinterpret_cast<const char*>(&*tree.begin()), tree.size());
+        pos = (tree_end - payload.begin()) + 1;
+        std::vector<std::string> parents;
+        while (true) {
+            auto parent_start = std::find(payload.begin() + pos, payload.end(), std::byte{' '});
+            auto parent_header = std::ranges::subrange(payload.begin() + pos, parent_start);
+            if (std::string(reinterpret_cast<const char*>(&*parent_header.begin()), parent_header.size()) != "parent") {
+                break;
+            }
+            auto parent_end = std::find(parent_start, payload.end(), std::byte{'\n'});
+            auto parent = std::ranges::subrange(parent_start + 1, parent_end);
+            parents.push_back(std::string(reinterpret_cast<const char*>(&*parent.begin()), parent.size()));
+            pos = (parent_end - payload.begin()) + 1;
+        }
+        data.parents = parents;
+        auto author_start = std::find(payload.begin() + pos, payload.end(), std::byte{' '});
+        auto author_end = std::find(author_start, payload.end(), std::byte{'\n'});
+        if (author_end == payload.end()) {
+            throw std::runtime_error("Author not found in payload");
+        }
+        auto author = std::ranges::subrange(author_start + 1, author_end);
+        data.author = std::string(reinterpret_cast<const char*>(&*author.begin()), author.size());
+        pos = (author_end - payload.begin()) + 1;
+        auto committer_start = std::find(payload.begin() + pos, payload.end(), std::byte{' '});
+        auto committer_end = std::find(committer_start, payload.end(), std::byte{'\n'});
+        if (committer_end == payload.end()) {
+            throw std::runtime_error("Committer not found in payload");
+        }
+        auto committer = std::ranges::subrange(committer_start + 1, committer_end);
+        data.committer = std::string(reinterpret_cast<const char*>(&*committer.begin()), committer.size());
+        pos = (committer_end - payload.begin()) + 1;
+        auto message_start = std::find(payload.begin() + pos, payload.end(), std::byte{'\n'});
+        if (message_start == payload.end()) {
+            throw std::runtime_error("Message not found in payload");
+        }
+        auto message = std::ranges::subrange(message_start + 1, payload.end());
+        data.message = std::string(reinterpret_cast<const char*>(&*message.begin()), message.size());
+        return data;
+    }
+
 }

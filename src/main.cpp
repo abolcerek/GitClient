@@ -11,6 +11,8 @@
 #include <stdexcept>
 #include <string_view>
 #include <vector>
+#include <chrono>
+#include <format>
 
 namespace fs = std::filesystem;
 
@@ -100,6 +102,44 @@ int main(int argc, char* argv[]) {
                 }
                 std::cout << entry.mode << " " << type << " " << GitClient::to_hex(entry.hash) << "\t" << entry.name << "\n";
             }
+            return 0;
+        }
+        catch (const std::exception& e) {
+            std::cerr << e.what();
+            return 1;
+        }
+    }
+    if (first_arg == "commit") {
+        if (argc != 4) {
+            std::exit(1);
+        }
+        const std::string_view second_arg = argv[2];
+        const std::string_view third_arg = argv[3];
+        if (second_arg != "-m") {
+            std::cout << "Incorrect flag";
+            return 1;
+        }
+        try {
+            const auto git_dir = fs::current_path() / ".git";
+            auto hash = GitClient::write_tree(git_dir, fs::current_path());
+            auto head = GitClient::resolve_head(git_dir);
+            GitClient::CommitData data;
+            data.tree = GitClient::to_hex(hash);
+            if (head.has_value()) {
+                data.parents = {*head};
+            } else {
+                data.parents = {};
+            }
+            const std::string identity = "Jane Doe <janedoe@example.com>";
+            auto seconds = std::chrono::duration_cast<std::chrono::seconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count();
+            data.author    = std::format("{} {} -0400", identity, seconds);
+            data.committer = data.author;
+            data.message = std::string(third_arg);
+            auto commit = GitClient::serialize_commit(data);
+            auto digest = GitClient::write_record(git_dir, "commit", commit, true);
+            GitClient::update_ref(git_dir, GitClient::to_hex(digest));
+            std::cout << GitClient::to_hex(digest) << "\n";
             return 0;
         }
         catch (const std::exception& e) {
