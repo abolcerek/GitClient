@@ -1,4 +1,5 @@
 #include "objects.hpp"
+#include "compress.hpp"
 #include "object_store.hpp"
 #include "sha1.hpp"
 
@@ -62,7 +63,8 @@ namespace GitClient {
     }
     std::pair<std::string, std::vector<std::byte>> read_object_raw(const fs::path& root, std::string_view hex) {
         const fs::path file_path = root / "objects" / hex.substr(0, 2) / hex.substr(2);
-        auto buffer = GitClient::read_file(file_path);
+        auto contents = GitClient::read_file(file_path);
+        auto buffer = GitClient::zlib_decompress(contents);
         auto it = std::find(buffer.begin(), buffer.end(), std::byte{0});
         if (it == buffer.end()) {
             throw std::runtime_error("Header and payload could not be parsed");

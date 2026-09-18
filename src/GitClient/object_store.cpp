@@ -1,5 +1,6 @@
 #include "object_store.hpp"
 #include "sha1.hpp"
+#include "compress.hpp"
 
 #include <cstring>
 #include <fstream>
@@ -51,7 +52,8 @@ namespace GitClient {
                 if (!outFile) {
                     throw std::runtime_error("Error when writing to object file");
                 }
-                outFile.write(reinterpret_cast<const char*>(buffer.data()), buffer.size());
+                auto compressed_buffer = zlib_compress(buffer);
+                outFile.write(reinterpret_cast<const char*>(compressed_buffer.data()), compressed_buffer.size());
                 outFile.close();            
             }
         }

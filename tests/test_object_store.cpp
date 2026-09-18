@@ -3,6 +3,7 @@
 
 #include "GitClient/object_store.hpp"
 #include "GitClient/sha1.hpp"
+#include "GitClient/compress.hpp"
 
 namespace fs = std::filesystem;
 
@@ -23,9 +24,9 @@ TEST_CASE("object store correctly hashes") {
     const std::vector<std::byte> test = {std::byte{'b'}, std::byte{'l'}, std::byte{'o'}, std::byte{'b'}, std::byte{' '}, std::byte{'6'}, std::byte{'\0'}, std::byte{'h'}, std::byte{'e'}, std::byte{'l'}, std::byte{'l'}, std::byte{'o'}, std::byte{'\n'}};
     std::ifstream in_file(object_path, std::ios::binary);
     REQUIRE(in_file.is_open());
-    std::vector<std::byte> buffer(test.size());
+    auto buffer = GitClient::read_file(object_path);
     in_file.read(reinterpret_cast<char*>(buffer.data()), test.size());
-    CHECK(buffer == test);
+    CHECK(GitClient::zlib_decompress(buffer) == test);
 
     
 }
