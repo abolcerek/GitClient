@@ -16,6 +16,7 @@
 #include <stdexcept>
 #include <charconv>
 #include <numeric>
+#include <format>
 
 namespace fs = std::filesystem;
 

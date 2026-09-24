@@ -2,6 +2,7 @@
 #include "GitClient/objects.hpp"
 #include "GitClient/object_store.hpp"
 #include "GitClient/sha1.hpp"
+#include "GitClient/index.hpp"
 
 
 #include <exception>
@@ -140,6 +141,20 @@ int main(int argc, char* argv[]) {
             auto digest = GitClient::write_record(git_dir, "commit", commit, true);
             GitClient::update_ref(git_dir, GitClient::to_hex(digest));
             std::cout << GitClient::to_hex(digest) << "\n";
+            return 0;
+        }
+        catch (const std::exception& e) {
+            std::cerr << e.what();
+            return 1;
+        }
+    }
+    if (first_arg == "add") {
+        if (argc != 3) {
+            std::exit(1);
+        }
+        const std::string_view second_arg = argv[2];
+        try {
+            GitClient::add(fs::current_path() / ".git", fs::current_path(), second_arg);
             return 0;
         }
         catch (const std::exception& e) {

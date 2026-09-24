@@ -30,6 +30,7 @@ add_library(gitcore STATIC
     src/GitClient/object_store.cpp
     src/GitClient/objects.cpp
     src/GitClient/compress.cpp
+    src/GitClient/index.cpp
 )
 target_include_directories(gitcore PUBLIC src)
 target_link_libraries(gitcore PUBLIC warnings sanitizers ZLIB::ZLIB)
@@ -53,6 +54,7 @@ add_executable(tests
     tests/test_object_store.cpp
     tests/test_objects.cpp
     tests/test_compress.cpp
+    tests/test_index.cpp
 )
 target_link_libraries(tests PRIVATE gitcore doctest::doctest)
 

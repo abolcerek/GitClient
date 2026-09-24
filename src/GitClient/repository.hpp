@@ -1,6 +1,7 @@
 #pragma once
-#include <filesystem>
 
+#include <filesystem>
+#include <optional>
 namespace GitClient {
     bool init_repository(const std::filesystem::path& root);
     std::filesystem::path read_head_ref_path(const std::filesystem::path& dir);
