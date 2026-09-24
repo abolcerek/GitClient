@@ -12,6 +12,8 @@ namespace fs = std::filesystem;
 using namespace GitClient;
 
 namespace {
+    constexpr std::string_view index_file = "mygit-index";
+
     // Creates a temporary test directory.
     fs::path make_temp_dir(const std::string& name) {
         auto dir = fs::temp_directory_path() / ("gitclient_index_" + name);
@@ -52,7 +54,7 @@ TEST_CASE("write_index creates and writes an index") {
 
     write_index(git_dir, entries);
 
-    CHECK(fs::exists(git_dir / "index"));
+    CHECK(fs::exists(git_dir / index_file));
 
     auto result = read_index(git_dir);
 
@@ -68,7 +70,7 @@ TEST_CASE("write_index creates and writes an index") {
 TEST_CASE("read_index correctly parses multiple entries") {
     auto git_dir = make_temp_dir("read_multiple");
 
-    std::ofstream file(git_dir / "index");
+    std::ofstream file(git_dir / index_file);
     REQUIRE(file.is_open());
 
     file << "100644 abc123 file.txt\n";
@@ -95,7 +97,7 @@ TEST_CASE("read_index correctly parses multiple entries") {
 TEST_CASE("read_index handles paths containing spaces") {
     auto git_dir = make_temp_dir("read_spaces");
 
-    std::ofstream file(git_dir / "index");
+    std::ofstream file(git_dir / index_file);
     REQUIRE(file.is_open());
 
     file << "100644 abc123 path with spaces.txt\n";
@@ -113,7 +115,7 @@ TEST_CASE("read_index handles paths containing spaces") {
 TEST_CASE("read_index uses the last entry for duplicate paths") {
     auto git_dir = make_temp_dir("read_duplicate");
 
-    std::ofstream file(git_dir / "index");
+    std::ofstream file(git_dir / index_file);
     REQUIRE(file.is_open());
 
     file << "100644 first_hash file.txt\n";
@@ -180,7 +182,7 @@ TEST_CASE("write_index handles an empty map") {
 
     write_index(git_dir, entries);
 
-    CHECK(fs::exists(git_dir / "index"));
+    CHECK(fs::exists(git_dir / index_file));
 
     auto result = read_index(git_dir);
 
@@ -321,7 +323,9 @@ TEST_CASE("add skips .git directory") {
     fs::create_directories(git_dir);
 
     write_file(worktree / "tracked.txt", "tracked");
-    write_file(git_dir / "index", "existing content");
+
+    // The index now lives at .git/mygit-index.
+    write_file(git_dir / index_file, "existing content");
     write_file(git_dir / "should_not_be_added.txt", "internal");
 
     add(git_dir, worktree, worktree);
@@ -329,7 +333,7 @@ TEST_CASE("add skips .git directory") {
     auto result = read_index(git_dir);
 
     CHECK(result.count("tracked.txt") == 1);
-    CHECK(result.count(".git/index") == 0);
+    CHECK(result.count(".git/mygit-index") == 0);
     CHECK(result.count(".git/should_not_be_added.txt") == 0);
 
     cleanup(root);
@@ -394,6 +398,131 @@ TEST_CASE("add updates an existing index entry") {
     CHECK(second.at("file.txt").mode == "100644");
     CHECK_FALSE(second.at("file.txt").hex.empty());
     CHECK(second.at("file.txt").hex != first_hash);
+
+    cleanup(root);
+}
+
+TEST_CASE("write_tree and write_tree_from_index agree on a nested worktree") {
+    auto root = make_temp_dir("tree_agreement");
+    auto git_dir = root / ".git";
+    auto worktree = root;
+
+    fs::create_directories(git_dir);
+
+    write_file(worktree / "a.txt", "a");
+    write_file(worktree / "sub" / "b.txt", "b");
+    write_file(worktree / "sub" / "deep" / "c.txt", "c");
+
+    // Build a tree directly from the worktree.
+    auto digest_a = write_tree(git_dir, worktree);
+
+    // Build the index from exactly the same worktree.
+    add(git_dir, worktree, worktree);
+
+    // Build a tree from the resulting index.
+    auto index = read_index(git_dir);
+    auto digest_b = write_tree_from_index(git_dir, index);
+
+    CHECK(digest_a == digest_b);
+
+    cleanup(root);
+}
+
+TEST_CASE("write_tree_from_index creates a tree for a single file") {
+    auto root = make_temp_dir("write_tree_single");
+    auto git_dir = root / ".git";
+
+    fs::create_directories(git_dir);
+
+    write_file(root / "file.txt", "hello");
+
+    add(git_dir, root, root / "file.txt");
+
+    auto index = read_index(git_dir);
+    auto tree = write_tree_from_index(git_dir, index);
+
+    CHECK(tree != std::array<std::byte, GitClient::hash_size>{});
+
+    cleanup(root);
+}
+
+TEST_CASE("write_tree_from_index creates nested directory trees") {
+    auto root = make_temp_dir("write_tree_nested");
+    auto git_dir = root / ".git";
+
+    fs::create_directories(git_dir);
+
+    write_file(root / "a.txt", "a");
+    write_file(root / "sub" / "b.txt", "b");
+    write_file(root / "sub" / "deep" / "c.txt", "c");
+
+    add(git_dir, root, root);
+
+    auto index = read_index(git_dir);
+
+    REQUIRE(index.size() == 3);
+    CHECK(index.count("a.txt") == 1);
+    CHECK(index.count("sub/b.txt") == 1);
+    CHECK(index.count("sub/deep/c.txt") == 1);
+
+    auto tree = write_tree_from_index(git_dir, index);
+
+    CHECK(tree != std::array<std::byte, GitClient::hash_size>{});
+
+    cleanup(root);
+}
+
+TEST_CASE("write_tree_from_index agrees with write_tree for multiple files") {
+    auto root = make_temp_dir("write_tree_multiple");
+    auto git_dir = root / ".git";
+
+    fs::create_directories(git_dir);
+
+    write_file(root / "a.txt", "aaa");
+    write_file(root / "b.txt", "bbb");
+    write_file(root / "src" / "main.cpp", "main");
+    write_file(root / "src" / "util.cpp", "util");
+
+    auto expected = write_tree(git_dir, root);
+
+    add(git_dir, root, root);
+
+    auto index = read_index(git_dir);
+    auto actual = write_tree_from_index(git_dir, index);
+
+    CHECK(actual == expected);
+
+    cleanup(root);
+}
+
+TEST_CASE("write_tree_from_index preserves executable file modes") {
+    auto root = make_temp_dir("write_tree_modes");
+    auto git_dir = root / ".git";
+
+    fs::create_directories(git_dir);
+
+    write_file(root / "normal.txt", "normal");
+    write_file(root / "script.sh", "#!/bin/sh\necho hello\n");
+
+    fs::permissions(
+        root / "script.sh",
+        fs::perms::owner_exec,
+        fs::perm_options::add
+    );
+
+    auto expected = write_tree(git_dir, root);
+
+    add(git_dir, root, root);
+
+    auto index = read_index(git_dir);
+
+    REQUIRE(index.size() == 2);
+    CHECK(index.at("normal.txt").mode == "100644");
+    CHECK(index.at("script.sh").mode == "100755");
+
+    auto actual = write_tree_from_index(git_dir, index);
+
+    CHECK(actual == expected);
 
     cleanup(root);
 }

@@ -11,4 +11,5 @@ namespace GitClient {
     constexpr std::string_view hexDigits = "0123456789abcdef";
     std::array<std::byte, hash_size> sha1(const std::vector<std::byte>& data);
     std::string to_hex(const std::array<std::byte, hash_size>& data);
+    std::array<std::byte, hash_size> hex_to_bytes(std::string_view hex);
 }

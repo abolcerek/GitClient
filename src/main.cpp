@@ -122,7 +122,12 @@ int main(int argc, char* argv[]) {
         }
         try {
             const auto git_dir = fs::current_path() / ".git";
-            auto hash = GitClient::write_tree(git_dir, fs::current_path());
+            auto idx = GitClient::read_index(git_dir);
+            if (idx.empty()) {
+                std::cerr << "nothing to commit";
+                return 1;
+            }
+            auto hash = GitClient::write_tree_from_index(git_dir, idx);
             auto head = GitClient::resolve_head(git_dir);
             GitClient::CommitData data;
             data.tree = GitClient::to_hex(hash);

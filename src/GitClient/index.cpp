@@ -10,12 +10,13 @@
 namespace fs = std::filesystem;
 
 namespace GitClient {
+    constexpr std::string_view index_file = "mygit-index";
     std::map<std::string, IndexEntry> read_index(const fs::path& git_dir) {
         std::map<std::string, IndexEntry> res;
-        if (!fs::exists(git_dir / "index")) {
+        if (!fs::exists(git_dir / index_file)) {
             return res;
         }
-        std::ifstream file(git_dir/ "index");
+        std::ifstream file(git_dir/ index_file);
         if (!file.is_open()) {
             throw std::runtime_error("Error when opening git index");
         }
@@ -35,7 +36,7 @@ namespace GitClient {
         if (!fs::exists(git_dir)) {
             throw std::runtime_error("Error: git directory does not exist");
         }
-        std::ofstream file(git_dir / "index");
+        std::ofstream file(git_dir / index_file);
         if (!file.is_open()) {
             throw std::runtime_error("Error when opening git index");
         }
@@ -67,5 +68,24 @@ namespace GitClient {
         auto idx = read_index(git_dir);
         idx[fs::relative(path, worktree).string()] = {mode, to_hex(hash)};
         write_index(git_dir, idx);
+    }
+    std::array<std::byte, GitClient::hash_size> write_tree_from_index(const std::filesystem::path& git_dir, const std::map<std::string, IndexEntry>& map) {
+        std::vector<TreeEntry> entries;
+        std::map<std::string, std::map<std::string, IndexEntry>> groups;
+        for (const auto& [path, entry] : map) {
+            if (!path.contains("/")) {        
+                entries.push_back(TreeEntry{.mode = entry.mode, .name = path, .hash = hex_to_bytes(entry.hex)});
+            }
+            else {
+                auto pos = path.find("/");
+                auto prefix = path.substr(0, pos);
+                auto rest = path.substr(pos + 1);
+                groups[prefix][rest] = entry;
+            }
+        }
+        for (const auto& [prefix, sub_map] : groups) {
+            entries.push_back(TreeEntry{.mode = std::string(directory), .name = prefix, .hash = write_tree_from_index(git_dir, sub_map)});
+        }
+        return write_record(git_dir, "tree", serialize_tree(entries), true); 
     }
 }

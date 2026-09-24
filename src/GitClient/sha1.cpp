@@ -6,6 +6,7 @@
 #include <cstring>
 #include <string>
 #include <bit>
+#include <charconv>
 
 namespace GitClient {
     std::string to_hex(const std::array<std::byte, GitClient::hash_size>& data) {
@@ -102,6 +103,23 @@ namespace GitClient {
         std::memcpy(&res[8], &H2, sizeof(H2));
         std::memcpy(&res[12], &H3, sizeof(H3));
         std::memcpy(&res[16], &H4, sizeof(H4));
+        return res;
+    }
+    std::array<std::byte, hash_size> hex_to_bytes(std::string_view hex) {
+        if (hex.length() != (hash_size * 2)) {
+            throw std::runtime_error("Error: hex is the incorrect size");
+        }
+        std::array<std::byte, hash_size> res;
+        auto idx = 0;
+        for (auto i = 0; i < hex.length(); i += 2) {
+            auto value = 0;
+            auto [_, ec] = std::from_chars(hex.data() + i, hex.data() + i + 2, value, 16);
+            if (ec != std::errc{}) {
+                throw std::runtime_error("Error: invalid hex character");
+            }
+            res[idx] = static_cast<std::byte>(value);
+            idx++;
+        }
         return res;
     }
 }
