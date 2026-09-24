@@ -64,4 +64,25 @@ namespace GitClient {
         }
         file << hex << "\n";
     }
+    std::vector<std::pair<std::string, CommitData>> collect_history(const fs::path& git_dir) {
+        auto response = GitClient::resolve_head(git_dir);
+        if (response == std::nullopt) {
+            return {};
+        }
+        std::string hex = *response;
+        std::vector<std::pair<std::string, CommitData>> res;
+        while (true) {
+            auto [type, payload] = GitClient::read_object_raw(git_dir, hex);
+            if (type != "commit") {
+                throw std::runtime_error("Error: incorrect type");
+            }
+            auto data = GitClient::parse_commit(payload);
+            res.push_back({hex, data});
+            if (data.parents.empty()) {
+                break;
+            }
+            hex = data.parents[0];
+        }
+        return res;
+    }
 }

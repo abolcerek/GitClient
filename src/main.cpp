@@ -167,6 +167,18 @@ int main(int argc, char* argv[]) {
             return 1;
         }
     }
+    if (first_arg == "log") {
+        if (argc != 2) {
+            std::exit(1);
+        }
+        auto response = GitClient::collect_history(fs::current_path() / ".git");
+        for (const auto& [hex, data] : response) {
+            std::cout << "commit " << hex << "\n";
+            std::cout << "author " << data.author << "\n";
+            std::cout << data.message << "\n";
+        }
+        return 0;
+    }
     std::cerr << "Unknown command";
     return 1;
 }

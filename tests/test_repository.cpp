@@ -6,6 +6,7 @@
 #include <string>
 
 #include "GitClient/repository.hpp"
+#include "GitClient/objects.hpp"
 
 namespace fs = std::filesystem;
 
@@ -157,3 +158,90 @@ TEST_CASE("update_ref overwrites existing reference") {
 
     fs::remove_all(git.parent_path());
 }
+
+TEST_CASE("collect_history returns empty history for fresh repository") {
+    const fs::path git = make_test_repo("mygit_test_collect_history_empty");
+
+    auto history = GitClient::collect_history(git);
+
+    CHECK(history.empty());
+
+    fs::remove_all(git.parent_path());
+}
+
+
+TEST_CASE("collect_history returns commits newest-first with intact parent chain") {
+    const fs::path git = make_test_repo("mygit_test_collect_history");
+
+    // Create the first commit.
+    GitClient::CommitData first;
+    first.message = "first";
+
+    auto first_payload = serialize_commit(first);
+    auto first_hash = GitClient::write_record(
+        git,
+        "commit",
+        first_payload,
+        true
+    );
+
+    // Create the second commit with first as its parent.
+    GitClient::CommitData second;
+    second.message = "second";
+    second.parents.push_back(GitClient::to_hex(first_hash));
+
+    auto second_payload = serialize_commit(second);
+    auto second_hash = GitClient::write_record(
+        git,
+        "commit",
+        second_payload,
+        true
+    );
+
+    // Create the third commit with second as its parent.
+    GitClient::CommitData third;
+    third.message = "third";
+    third.parents.push_back(GitClient::to_hex(second_hash));
+
+    auto third_payload = serialize_commit(third);
+    auto third_hash = GitClient::write_record(
+        git,
+        "commit",
+        third_payload,
+        true
+    );
+
+    const auto first_hex = GitClient::to_hex(first_hash);
+    const auto second_hex = GitClient::to_hex(second_hash);
+    const auto third_hex = GitClient::to_hex(third_hash);
+
+    // HEAD must point to the newest commit.
+    GitClient::update_ref(git, third_hex);
+
+    auto history = GitClient::collect_history(git);
+
+    REQUIRE(history.size() == 3);
+
+    // Newest-first ordering.
+    CHECK(history[0].first == third_hex);
+    CHECK(history[0].second.message == "third");
+
+    CHECK(history[1].first == second_hex);
+    CHECK(history[1].second.message == "second");
+
+    CHECK(history[2].first == first_hex);
+    CHECK(history[2].second.message == "first");
+
+    // Parent chain integrity.
+    REQUIRE(history[0].second.parents.size() == 1);
+    CHECK(history[0].second.parents[0] == history[1].first);
+
+    REQUIRE(history[1].second.parents.size() == 1);
+    CHECK(history[1].second.parents[0] == history[2].first);
+
+    CHECK(history[2].second.parents.empty());
+
+    fs::remove_all(git.parent_path());
+}
+
+
